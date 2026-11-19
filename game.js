@@ -71,6 +71,11 @@ const POWERUP_EVERY = 5;
 const PENTO_CHANCE = 0.10;
 const HOLLOW_CHANCE = 0.05;
 const FREEZE_MS = 5000;
+const ENERGY_MAX = 100;
+const ENERGY_PER_LINE = 10;
+const PREVIEW_MS = 20000;
+const SLOW_MS = 10000;
+const QUEUE_LEN = 5;
 const POWER_ICONS = { bomb: '💣', ray: '⚡', tint: '🎨', gravity: '⬇', freeze: '❄' };
 
 const canvas = document.getElementById('board');
@@ -90,6 +95,15 @@ const themeText = document.getElementById('theme-text');
 const comboEl = document.getElementById('combo');
 const modeSelect = document.getElementById('mode-select');
 const goalEl = document.getElementById('goal');
+const energyBar = document.getElementById('energy-bar');
+const energyFill = document.getElementById('energy-fill');
+const abilityMenu = document.getElementById('ability-menu');
+const holdCanvas = document.getElementById('hold-canvas');
+const holdCtx = holdCanvas.getContext('2d');
+const queueCanvas = document.getElementById('queue-canvas');
+const queueCtx = queueCanvas.getContext('2d');
+const holdSection = document.getElementById('hold-section');
+const queueSection = document.getElementById('queue-section');
 
 const CHALLENGE_MS = 120000;
 const CHALLENGES = {
@@ -103,7 +117,8 @@ const CHALLENGES = {
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending, combo, lastRotate, b2b, popups, challenge, elapsed, garbageAccum;
+let queue, energy, choosing, previewLeft, slowLeft, held, holdOn, holdUsed, spawned, undoSnap;
+let board, current, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending, combo, lastRotate, b2b, popups, challenge, elapsed, garbageAccum;
 
 let audioCtx;
 function beep(freq, ms = 120, delay = 0) {
@@ -286,6 +301,9 @@ function clearLines(tspin) {
   }
 
   lines += cleared;
+  const wasFull = energy >= ENERGY_MAX;
+  energy = Math.min(ENERGY_MAX, energy + cleared * ENERGY_PER_LINE);
+  if (!wasFull && energy >= ENERGY_MAX) { popup('ENERGÍA LLENA'); beep(988, 150, 150); }
   level = Math.floor(lines / 10) + 1;
   dropInterval = Math.max(100, 1000 - (level - 1) * 90);
   updateHUD();
@@ -316,6 +334,10 @@ function softDrop() {
 }
 
 function lockPiece() {
+  undoSnap = {
+    board: board.map(r => [...r]), piece: spawned, queue: structuredClone(queue), held: structuredClone(held),
+    holdUsed, score, lines, level, combo, b2b, dropInterval,
+  };
   const tspin = !current.power && isTSpin();
   if (current.power) applyPower(current); else merge();
   clearLines(tspin);
@@ -324,14 +346,73 @@ function lockPiece() {
 }
 
 function spawn() {
-  current = next;
-  if (powerPending) { next = powerPiece(); powerPending = false; }
-  else if (rewardPending) { next = randomPiece(12); rewardPending = false; }
-  else next = randomPiece();
+  current = queue.shift();
+  if (powerPending) { queue.unshift(powerPiece()); powerPending = false; }
+  else if (rewardPending) { queue.unshift(randomPiece(12)); rewardPending = false; }
+  while (queue.length < QUEUE_LEN) queue.push(randomPiece());
+  spawned = structuredClone(current);
+  holdUsed = false;
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
   drawNext();
+}
+
+// Reserva: guarda la pieza actual (en su orientación inicial) e intercambia con la reservada
+function holdSwap() {
+  if (holdUsed) return false;
+  const out = held;
+  held = spawned;
+  if (out) {
+    current = structuredClone(out);
+    spawned = structuredClone(out);
+    if (collide(current.shape, current.x, current.y)) endGame();
+    drawNext();
+  } else spawn();
+  holdUsed = true;
+}
+
+const ABILITIES = [
+  () => { previewLeft = PREVIEW_MS; drawNext(); },
+  () => {
+    const t = [1, 2, 3, 4, 5, 6, 7].filter(t => t !== current.type).sort(() => Math.random() - 0.5)
+      .find(t => !collide(PIECES[t], current.x, current.y));
+    if (!t) { popup('SIN ESPACIO'); return false; }
+    current = { type: t, shape: PIECES[t].map(r => [...r]), x: current.x, y: current.y };
+    lastRotate = false;
+  },
+  () => { slowLeft = SLOW_MS; },
+  () => {
+    if (!undoSnap) { popup('NADA QUE DESHACER'); return false; }
+    const s = undoSnap;
+    undoSnap = null;
+    ({ board, queue, held, holdUsed, score, lines, level, combo, b2b, dropInterval } = s);
+    current = structuredClone(s.piece);
+    spawned = structuredClone(s.piece);
+    dropAccum = 0;
+    drawNext();
+  },
+  () => { holdOn = true; return holdSwap(); },
+];
+
+function openAbilities() {
+  choosing = true;
+  cancelAnimationFrame(animId);
+  abilityMenu.classList.remove('hidden');
+}
+
+function closeAbilities() {
+  choosing = false;
+  abilityMenu.classList.add('hidden');
+  if (gameOver) return;
+  lastTime = performance.now();
+  loop(lastTime);
+}
+
+function useAbility(i) {
+  if (ABILITIES[i]() !== false) energy = 0;
+  updateHUD();
+  closeAbilities();
 }
 
 function updateHUD() {
@@ -339,6 +420,8 @@ function updateHUD() {
   linesEl.textContent = lines;
   levelEl.textContent = level;
   comboEl.textContent = combo > 1 ? `x${combo}` : '—';
+  energyFill.style.width = `${energy}%`;
+  energyBar.classList.toggle('full', energy >= ENERGY_MAX);
 }
 
 function getCssVar(name) {
@@ -357,7 +440,7 @@ function setTheme(name, persist) {
     try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignorar */ }
   }
   // repintar aunque el juego esté en pausa o terminado
-  if (current && next) { draw(); drawNext(); }
+  if (current && queue) { draw(); drawNext(); }
 }
 
 function toggleTheme() {
@@ -416,7 +499,7 @@ function draw() {
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
   if (current.power) drawIcon(ctx, current.x, current.y, BLOCK, current.power);
 
-  if (freezeLeft > 0) {
+  if (freezeLeft > 0 || slowLeft > 0) {
     ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
@@ -440,16 +523,26 @@ function drawIcon(context, x, y, size, power) {
   context.fillText(POWER_ICONS[power], x * size + size / 2, y * size + size / 2 + 1);
 }
 
-function drawNext() {
-  const NB = 30;
-  nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-  const shape = next.shape;
+// Dibuja una pieza centrada en una celda 4×4 (size px por bloque), desplazada slot*4 filas
+function drawPreview(context, piece, size, slot = 0) {
+  const shape = piece.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
-  const offY = Math.floor((4 - shape.length) / 2);
+  const offY = slot * 4 + Math.floor((4 - shape.length) / 2);
   for (let r = 0; r < shape.length; r++)
     for (let c = 0; c < shape[r].length; c++)
-      drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
-  if (next.power) drawIcon(nextCtx, offX, offY, NB, next.power);
+      drawBlock(context, offX + c, offY + r, shape[r][c], size);
+  if (piece.power) drawIcon(context, offX, offY, size, piece.power);
+}
+
+function drawNext() {
+  nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  drawPreview(nextCtx, queue[0], 30);
+  queueCtx.clearRect(0, 0, queueCanvas.width, queueCanvas.height);
+  queue.slice(1, QUEUE_LEN).forEach((p, i) => drawPreview(queueCtx, p, 15, i));
+  queueSection.hidden = previewLeft <= 0;
+  holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+  if (held) drawPreview(holdCtx, held, 30);
+  holdSection.hidden = !holdOn;
 }
 
 function endGame(title = 'GAME OVER') {
@@ -470,7 +563,7 @@ function updateGoal() {
 }
 
 function togglePause() {
-  if (gameOver) return;
+  if (gameOver || choosing) return;
   paused = !paused;
   if (!paused) {
     lastTime = performance.now();
@@ -486,7 +579,9 @@ function togglePause() {
 function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
-  if (freezeLeft > 0) freezeLeft -= dt; else dropAccum += dt;
+  if (freezeLeft > 0) freezeLeft -= dt; else dropAccum += slowLeft > 0 ? dt / 2 : dt;
+  if (slowLeft > 0) slowLeft -= dt;
+  if (previewLeft > 0 && (previewLeft -= dt) <= 0) { previewLeft = 0; drawNext(); }
   popups.forEach(p => { p.t -= dt; });
   popups = popups.filter(p => p.t > 0);
   if (challenge) {
@@ -535,7 +630,16 @@ function init() {
   b2b = false;
   popups = [];
   lastTime = performance.now();
-  next = randomPiece();
+  energy = 0;
+  choosing = false;
+  previewLeft = 0;
+  slowLeft = 0;
+  held = null;
+  holdOn = false;
+  holdUsed = false;
+  undoSnap = null;
+  abilityMenu.classList.add('hidden');
+  queue = [randomPiece()];
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
@@ -547,9 +651,20 @@ document.addEventListener('keydown', e => {
   if (e.target === themeBtn && e.code === 'Space') { e.preventDefault(); return; }
   if (e.target === modeSelect) return;
   if (e.code === 'KeyT') { toggleTheme(); return; }
+  if (choosing) {
+    if (e.code === 'Escape') closeAbilities();
+    else if (/^Digit[1-5]$/.test(e.code)) useAbility(+e.code[5] - 1);
+    return;
+  }
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
+    case 'KeyE':
+      if (energy >= ENERGY_MAX) openAbilities();
+      break;
+    case 'KeyC':
+      if (holdOn) holdSwap();
+      break;
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) { current.x--; lastRotate = false; }
       break;
@@ -572,6 +687,11 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+abilityMenu.addEventListener('click', e => {
+  const i = e.target.dataset.i;
+  if (i !== undefined) useAbility(+i);
+  e.target.blur?.();
+});
 modeSelect.addEventListener('change', () => { init(); modeSelect.blur(); });
 themeBtn.addEventListener('click', () => { toggleTheme(); themeBtn.blur(); });
 
