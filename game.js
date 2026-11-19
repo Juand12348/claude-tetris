@@ -15,6 +15,11 @@ const PALETTES = {
     '#90caf9', // J - pale blue
     '#ffb74d', // L - orange
     '#ffffff', // power-up
+    '#f06292', // + pink
+    '#26a69a', // U teal
+    '#d4e157', // Y lime
+    '#ffca28', // single gold
+    '#90a4ae', // hollow slate
   ],
   light: [
     null,
@@ -26,6 +31,11 @@ const PALETTES = {
     '#1e88e5', // J - blue
     '#fb8c00', // L - orange
     '#424242', // power-up
+    '#d81b60', // + pink
+    '#00897b', // U teal
+    '#9e9d24', // Y lime
+    '#ff8f00', // single gold
+    '#546e7a', // hollow slate
   ],
 };
 let COLORS = PALETTES.dark;
@@ -39,11 +49,19 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  null,                                        // 8 = power-up
+  [[0,9,0],[9,9,9],[0,9,0]],                  // + (pentominó)
+  [[10,0,10],[10,10,10],[0,0,0]],             // U (pentominó)
+  [[0,0,0,0],[11,11,11,11],[0,11,0,0],[0,0,0,0]], // Y (pentominó)
+  [[12]],                                      // 1x1 (recompensa por Tetris)
+  [[13,13,13],[13,0,13],[13,13,13]],          // 3x3 hueca (reto)
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
 const POWERUP_EVERY = 5;
+const PENTO_CHANCE = 0.10;
+const HOLLOW_CHANCE = 0.05;
 const FREEZE_MS = 5000;
 const POWER_ICONS = { bomb: '💣', ray: '⚡', tint: '🎨', gravity: '⬇', freeze: '❄' };
 
@@ -65,14 +83,18 @@ const themeText = document.getElementById('theme-text');
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
-function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+function randomPiece(forced) {
+  const roll = Math.random();
+  const type = forced ||
+    (roll < HOLLOW_CHANCE ? 13 :
+     roll < HOLLOW_CHANCE + PENTO_CHANCE ? 9 + Math.floor(Math.random() * 3) :
+     Math.floor(Math.random() * 7) + 1);
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
@@ -162,6 +184,7 @@ function clearLines() {
     }
   }
   if (cleared) {
+    if (cleared === 4) rewardPending = true;
     if (Math.floor((lines + cleared) / POWERUP_EVERY) > Math.floor(lines / POWERUP_EVERY)) powerPending = true;
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
@@ -202,8 +225,9 @@ function lockPiece() {
 
 function spawn() {
   current = next;
-  next = powerPending ? powerPiece() : randomPiece();
-  powerPending = false;
+  if (powerPending) { next = powerPiece(); powerPending = false; }
+  else if (rewardPending) { next = randomPiece(12); rewardPending = false; }
+  else next = randomPiece();
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -363,6 +387,7 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   powerPending = false;
+  rewardPending = false;
   freezeLeft = 0;
   lastTime = performance.now();
   next = randomPiece();
