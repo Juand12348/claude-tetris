@@ -115,11 +115,55 @@
         </div>
       </div>
 
+      <div id="pause-menu" class="overlay hidden">
+        <div class="overlay-box">
+          <p class="menu-title">PAUSA</p>
+          <button class="ability-btn" id="resume-btn" type="button">Reanudar</button>
+          <button class="ability-btn" id="pause-restart-btn" type="button">Reiniciar</button>
+          <button class="ability-btn" id="controls-btn" type="button" aria-expanded="false">Ver controles</button>
+          <ul id="pause-controls" class="pause-controls" hidden>
+            <li><kbd>←</kbd><kbd>→</kbd> mover</li>
+            <li><kbd>↑</kbd>/<kbd>X</kbd> rotar</li>
+            <li><kbd>↓</kbd> bajar</li>
+            <li><kbd>Space</kbd> caída</li>
+            <li><kbd>E</kbd> habilidad</li>
+            <li><kbd>C</kbd>/<kbd>Shift</kbd> reservar</li>
+            <li><kbd>P</kbd>/<kbd>Esc</kbd> pausa</li>
+            <li><kbd>T</kbd> tema</li>
+          </ul>
+          <label class="menu-hint" for="start-level">Nivel inicial (próxima partida)</label>
+          <select id="start-level" aria-label="Nivel inicial">
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+          </select>
+          <span class="menu-hint">P o Esc para reanudar</span>
+        </div>
+      </div>
+
       <div id="overlay" class="overlay hidden">
         <div class="overlay-box">
           <p id="overlay-title">GAME OVER</p>
           <p id="overlay-score"></p>
+          <div id="go-records-box" class="records-box">
+            <ol id="go-records" class="records"></ol>
+            <p id="go-extra" class="records-extra"></p>
+            <div id="name-form" hidden>
+              <input id="player-name" maxlength="12" placeholder="Tu nombre" autocomplete="off" aria-label="Nombre del jugador" />
+              <button id="save-name-btn" type="button">Guardar</button>
+            </div>
+          </div>
           <button id="restart-btn">Reiniciar</button>
+        </div>
+      </div>
+
+      <div id="start-screen" class="overlay hidden">
+        <div class="overlay-box">
+          <p class="start-title">TETRIS</p>
+          <span class="label">MEJORES PUNTUACIONES</span>
+          <ol id="start-records" class="records"></ol>
+          <p id="start-extra" class="records-extra"></p>
+          <button id="start-btn" class="primary-btn" type="button">Jugar</button>
+          <button id="reset-records-btn" class="link-btn" type="button">Borrar récords</button>
         </div>
       </div>
     </div>

@@ -41,7 +41,8 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Vista previa** de la siguiente pieza.
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
-- **Pausa** y **Game Over** con opción de reinicio.
+- **Menú de pausa** (`P` o `Esc`): Reanudar, Reiniciar, Ver controles y Nivel inicial (1–10) para la próxima partida; los controles del juego quedan bloqueados mientras está abierto.
+- **Game Over** con opción de reinicio.
 - **Modo desafío** (selector `MODO`): 40 líneas en 2 min, sobrevivir 2 min con basura subiendo cada 10 s, limpiar bloques fijos pre-colocados, piezas invisibles tras fijarse (20 líneas) y rotación inversa desde el nivel 3 (llegar al nivel 5).
 
 ---
@@ -85,7 +86,7 @@ Después abre `http://localhost:8000` en el navegador.
 | `↑` o `X` | Rotar la pieza en sentido horario |
 | `↓`       | Soft drop (bajar más rápido)      |
 | `Espacio` | Hard drop (caída instantánea)     |
-| `P`       | Pausar / reanudar                 |
+| `P` / `Esc` | Menú de pausa / reanudar        |
 
 ---
 
@@ -189,3 +190,7 @@ Proyecto de uso libre con fines educativos y de práctica.
 ## Skins
 
 Selector de skin en la cabecera: Retro, Neon (glow), Pastel (bordes redondeados) y Pixel art (textura). Se guarda en localStorage y funciona con tema claro/oscuro.
+
+## Récords
+
+Top 5 local (localStorage, clave `tetris-records`) con nombre, mejor combo y líneas máximas. Se muestra en la pantalla de inicio y al terminar la partida; el botón "Borrar récords" los resetea.
