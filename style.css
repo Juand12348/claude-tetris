@@ -213,6 +213,29 @@ body {
   color: var(--muted);
 }
 
+.pause-controls {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.pause-controls[hidden] {
+  display: none;
+}
+
+#start-level {
+  width: 200px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
 /* ---- Controles ---- */
 .controls ul {
   list-style: none;
