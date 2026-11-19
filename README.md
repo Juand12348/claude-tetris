@@ -187,6 +187,10 @@ Algunos parámetros fáciles de tunear en `game.js`:
 
 Proyecto de uso libre con fines educativos y de práctica.
 
+## Skins
+
+Selector de skin en la cabecera: Retro, Neon (glow), Pastel (bordes redondeados) y Pixel art (textura). Se guarda en localStorage y funciona con tema claro/oscuro.
+
 ## Récords
 
-Top 5 local (localStorage, clave \`tetris-records\`) con nombre, mejor combo y líneas máximas. Se muestra en la pantalla de inicio y al terminar la partida; el botón "Borrar récords" los resetea.
+Top 5 local (localStorage, clave `tetris-records`) con nombre, mejor combo y líneas máximas. Se muestra en la pantalla de inicio y al terminar la partida; el botón "Borrar récords" los resetea.

@@ -128,6 +128,59 @@ const CHALLENGES = {
 
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
+const SKIN_KEY = 'tetris-skin';
+let skin = 'retro';
+const skinSelect = document.getElementById('skin-select');
+const PASTEL = {
+  dark: [null, '#a8e6ef', '#fff1b8', '#d9b8e6', '#b8e6bf', '#f2b8b8', '#b8d4f2', '#f7d0a8', '#ffffff', '#f5b8cf', '#a8d9d3', '#e3ecae', '#fbe08a', '#c3cfd5', '#8a8a9a'],
+  light: [null, '#7fd3e0', '#f7d56e', '#c490d6', '#92d39b', '#ee9494', '#8fbbe8', '#f2b97c', '#777777', '#ee8fb2', '#80c7bf', '#cfdc85', '#f5c75a', '#9fb2bb', '#aaaabc'],
+};
+const SKINS = {
+  retro: {
+    block(c, px, py, s, color) {
+      c.fillStyle = color;
+      c.fillRect(px + 1, py + 1, s - 2, s - 2);
+      c.fillStyle = getCssVar('--block-shine');
+      c.fillRect(px + 1, py + 1, s - 2, 4);
+    },
+  },
+  neon: {
+    palette: () => PALETTES.dark, // fondo siempre negro: colores brillantes en ambos temas
+    block(c, px, py, s, color) {
+      c.shadowColor = color;
+      c.shadowBlur = s / 3;
+      c.fillStyle = '#05050a';
+      c.fillRect(px + 3, py + 3, s - 6, s - 6);
+      c.strokeStyle = color;
+      c.lineWidth = 2;
+      c.strokeRect(px + 3, py + 3, s - 6, s - 6);
+    },
+  },
+  pastel: {
+    palette: t => PASTEL[t],
+    block(c, px, py, s, color) {
+      c.fillStyle = color;
+      if (!c.roundRect) { c.fillRect(px + 2, py + 2, s - 4, s - 4); return; }
+      c.beginPath();
+      c.roundRect(px + 2, py + 2, s - 4, s - 4, s / 4);
+      c.fill();
+    },
+  },
+  pixel: {
+    block(c, px, py, s, color) {
+      c.fillStyle = color;
+      c.fillRect(px + 1, py + 1, s - 2, s - 2);
+      const u = Math.floor((s - 2) / 4);
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const k = (i + j) % 4; // patrón en diagonal: claro, oscuro o nada
+        if (k === 0) c.fillStyle = 'rgba(255,255,255,0.3)';
+        else if (k === 2) c.fillStyle = 'rgba(0,0,0,0.25)';
+        else continue;
+        c.fillRect(px + 1 + i * u, py + 1 + j * u, u, u);
+      }
+    },
+  },
+};
 
 const RECORDS_KEY = 'tetris-records';
 const TOP_N = 5;
@@ -485,7 +538,7 @@ function getCssVar(name) {
 function setTheme(name, persist) {
   theme = name === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = theme;
-  COLORS = PALETTES[theme];
+  COLORS = SKINS[skin].palette?.(theme) || PALETTES[theme];
   const isLight = theme === 'light';
   themeBtn.setAttribute('aria-pressed', String(isLight));
   themeIcon.textContent = isLight ? '☾' : '☀';
@@ -501,16 +554,23 @@ function toggleTheme() {
   setTheme(theme === 'light' ? 'dark' : 'light', true);
 }
 
+function setSkin(name, persist) {
+  skin = SKINS[name] ? name : 'retro';
+  document.documentElement.dataset.skin = skin;
+  COLORS = SKINS[skin].palette?.(theme) || PALETTES[theme];
+  skinSelect.value = skin;
+  if (persist) {
+    try { localStorage.setItem(SKIN_KEY, skin); } catch (e) { /* ignorar */ }
+  }
+  if (current && queue) { draw(); drawNext(); }
+}
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = getCssVar('--block-shine');
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  SKINS[skin].block(context, x * size, y * size, size, COLORS[colorIndex]);
   context.globalAlpha = 1;
+  context.shadowBlur = 0;
 }
 
 function drawGrid() {
@@ -574,6 +634,8 @@ function drawIcon(context, x, y, size, power) {
   context.font = `${size - 8}px serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
+  // el skin deja fillStyle arbitrario; el bloque power-up es claro (oscuro) u oscuro (claro, salvo neon)
+  context.fillStyle = theme === 'light' && skin !== 'neon' ? '#fff' : '#111';
   context.fillText(POWER_ICONS[power], x * size + size / 2, y * size + size / 2 + 1);
 }
 
@@ -744,7 +806,7 @@ function init() {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || !startScreen.classList.contains('hidden')) return;
   if (e.target === themeBtn && e.code === 'Space') { e.preventDefault(); return; }
-  if (e.target === modeSelect) return;
+  if (e.target === modeSelect || e.target === skinSelect) return;
   if (pauseMenu.contains(e.target) && e.code !== 'KeyP' && e.code !== 'Escape') return;
   if (e.code === 'KeyT') { toggleTheme(); return; }
   if (choosing) {
@@ -813,6 +875,10 @@ themeBtn.addEventListener('click', () => { toggleTheme(); themeBtn.blur(); });
 let savedTheme = null;
 try { savedTheme = localStorage.getItem(THEME_KEY); } catch (e) { /* ignorar */ }
 setTheme(savedTheme === 'light' ? 'light' : 'dark', false);
+let savedSkin = null;
+try { savedSkin = localStorage.getItem(SKIN_KEY); } catch (e) { /* ignorar */ }
+setSkin(savedSkin, false);
+skinSelect.addEventListener('change', () => { setSkin(skinSelect.value, true); skinSelect.blur(); });
 
 init();
 showStart(); // la partida no corre hasta pulsar Jugar
