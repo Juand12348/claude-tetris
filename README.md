@@ -185,3 +185,7 @@ Algunos parámetros fáciles de tunear en `game.js`:
 ## Licencia
 
 Proyecto de uso libre con fines educativos y de práctica.
+
+## Skins
+
+Selector de skin en la cabecera: Retro, Neon (glow), Pastel (bordes redondeados) y Pixel art (textura). Se guarda en localStorage y funciona con tema claro/oscuro.

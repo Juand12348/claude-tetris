@@ -313,8 +313,17 @@ kbd {
   border-color: var(--accent);
 }
 
-/* ---- Selector de modo ---- */
-#mode-select {
+/* ---- Selector de modo / skin ---- */
+:root[data-skin="neon"] #board {
+  background: #000;
+  box-shadow: 0 0 24px var(--accent-glow);
+}
+
+:root[data-skin="neon"] { --grid: #14141f; }
+:root[data-skin="neon"][data-theme="light"] { --grid: #1a1a2a; }
+
+#mode-select,
+#skin-select {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
@@ -325,11 +334,13 @@ kbd {
   max-width: 100%;
 }
 
-#mode-select:hover {
+#mode-select:hover,
+#skin-select:hover {
   border-color: var(--accent);
 }
 
-#mode-select:focus-visible {
+#mode-select:focus-visible,
+#skin-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
