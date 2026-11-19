@@ -8,32 +8,18 @@
 </head>
 <body>
   <div class="wrapper">
-    <h1 class="game-title">TETRIS</h1>
+    <header class="top-bar">
+      <h1 class="game-title">TETRIS</h1>
+      <button id="theme-toggle" type="button" aria-label="Cambiar tema claro/oscuro">
+        <span id="theme-icon" aria-hidden="true">☀</span>
+        <span id="theme-text">Claro</span>
+      </button>
+    </header>
     <div class="game-container">
-      <canvas id="board" width="300" height="600"></canvas>
-
-      <aside class="panel">
-        <div class="panel-section">
-          <span class="label">SCORE</span>
-          <span class="value" id="score">0</span>
-        </div>
-        <div class="panel-section">
-          <span class="label">LINES</span>
-          <span class="value" id="lines">0</span>
-        </div>
-        <div class="panel-section">
-          <span class="label">LEVEL</span>
-          <span class="value" id="level">1</span>
-        </div>
-
-        <div class="panel-section">
-          <span class="label">COMBO</span>
-          <span class="value" id="combo">—</span>
-        </div>
-
-        <div class="panel-section">
-          <span class="label">ENERGÍA <kbd>E</kbd></span>
-          <div class="energy-bar" id="energy-bar"><div id="energy-fill"></div></div>
+      <aside class="panel panel-left">
+        <div class="panel-section" id="hold-section">
+          <span class="label">HOLD (C/⇧)</span>
+          <canvas id="hold-canvas" width="120" height="120"></canvas>
         </div>
 
         <div class="panel-section">
@@ -47,21 +33,6 @@
             <option value="reverse">Rotación inversa</option>
           </select>
           <span class="value goal" id="goal" hidden></span>
-        </div>
-
-        <div class="panel-section">
-          <span class="label">NEXT</span>
-          <canvas id="next-canvas" width="120" height="120"></canvas>
-        </div>
-
-        <div class="panel-section" id="hold-section">
-          <span class="label">HOLD (C/⇧)</span>
-          <canvas id="hold-canvas" width="120" height="120"></canvas>
-        </div>
-
-        <div class="panel-section" id="queue-section" hidden>
-          <span class="label">PRÓXIMAS</span>
-          <canvas id="queue-canvas" width="60" height="240"></canvas>
         </div>
 
         <div class="panel-section controls">
@@ -88,13 +59,41 @@
             <li>❄ congelar 5s</li>
           </ul>
         </div>
+      </aside>
+
+      <canvas id="board" width="300" height="600"></canvas>
+
+      <aside class="panel">
+        <div class="panel-section">
+          <span class="label">NEXT</span>
+          <canvas id="next-canvas" width="120" height="120"></canvas>
+        </div>
+
+        <div class="panel-section" id="queue-section" hidden>
+          <span class="label">PRÓXIMAS</span>
+          <canvas id="queue-canvas" width="60" height="240"></canvas>
+        </div>
 
         <div class="panel-section">
-          <span class="label">TEMA</span>
-          <button id="theme-toggle" type="button" aria-label="Cambiar tema claro/oscuro">
-            <span id="theme-icon" aria-hidden="true">☀</span>
-            <span id="theme-text">Claro</span>
-          </button>
+          <span class="label">SCORE</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="panel-section">
+          <span class="label">LINES</span>
+          <span class="value" id="lines">0</span>
+        </div>
+        <div class="panel-section">
+          <span class="label">LEVEL</span>
+          <span class="value" id="level">1</span>
+        </div>
+        <div class="panel-section">
+          <span class="label">COMBO</span>
+          <span class="value" id="combo">—</span>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">ENERGÍA <kbd>E</kbd></span>
+          <div class="energy-bar" id="energy-bar"><div id="energy-fill"></div></div>
         </div>
       </aside>
 

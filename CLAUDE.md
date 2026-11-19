@@ -15,6 +15,7 @@ Open `index.html` directly, or serve statically (e.g. `python -m http.server 800
 Three files: `index.html` (DOM + two canvases + overlay), `style.css`, and `game.js` (all logic, one global script, `'use strict'`, no modules).
 
 - **State** lives in module-level `let` variables declared on one line in `game.js` and reset by `init()` (also the restart button handler). Add new state there and reset it in `init()`.
+- **Layout**: 3 columns in `.game-container` — `.panel-left` (hold, mode, controls, power-ups), `#board`, right `.panel` (next, queue, stats, energy). Theme toggle lives in `.top-bar` header. `game.js` finds everything by id, so moving nodes is safe.
 - **Board** is a `ROWS×COLS` matrix of `0` or a color/piece index 1–7. `PIECES` and `COLORS` are indexed by the same 1–7 type, so a piece's shape cells hold its own type number.
 - **Loop**: `loop(ts)` (requestAnimationFrame) accumulates `dropAccum` against `dropInterval`, then gravity-drops or calls `lockPiece()` → `merge()` → `clearLines()` → `spawn()`. `spawn()` triggers `endGame()` if the new piece collides. Pause/game over work by `cancelAnimationFrame(animId)`; `togglePause` restarts `loop` manually.
 - **Input**: a single `keydown` listener at the bottom (uses `e.code`); calls `updateHUD()` after every key.
