@@ -117,7 +117,7 @@ const CHALLENGES = {
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
 
-let queue, energy, choosing, previewLeft, slowLeft, held, holdOn, holdUsed, spawned, undoSnap;
+let queue, energy, choosing, previewLeft, slowLeft, held, holdUsed, spawned, undoSnap;
 let board, current, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending, combo, lastRotate, b2b, popups, challenge, elapsed, garbageAccum;
 
 let audioCtx;
@@ -367,9 +367,10 @@ function holdSwap() {
     current = structuredClone(out);
     spawned = structuredClone(out);
     if (collide(current.shape, current.x, current.y)) endGame();
-    drawNext();
   } else spawn();
-  holdUsed = true;
+  holdUsed = true; // después de spawn(), que lo resetea
+  lastRotate = false;
+  drawNext();
 }
 
 const ABILITIES = [
@@ -392,7 +393,7 @@ const ABILITIES = [
     dropAccum = 0;
     drawNext();
   },
-  () => { holdOn = true; return holdSwap(); },
+  () => { holdUsed = false; return holdSwap(); },
 ];
 
 function openAbilities() {
@@ -542,7 +543,7 @@ function drawNext() {
   queueSection.hidden = previewLeft <= 0;
   holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
   if (held) drawPreview(holdCtx, held, 30);
-  holdSection.hidden = !holdOn;
+  holdSection.classList.toggle('locked', holdUsed);
 }
 
 function endGame(title = 'GAME OVER') {
@@ -635,7 +636,6 @@ function init() {
   previewLeft = 0;
   slowLeft = 0;
   held = null;
-  holdOn = false;
   holdUsed = false;
   undoSnap = null;
   abilityMenu.classList.add('hidden');
@@ -663,7 +663,9 @@ document.addEventListener('keydown', e => {
       if (energy >= ENERGY_MAX) openAbilities();
       break;
     case 'KeyC':
-      if (holdOn) holdSwap();
+    case 'ShiftLeft':
+    case 'ShiftRight':
+      holdSwap();
       break;
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) { current.x--; lastRotate = false; }

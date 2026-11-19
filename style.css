@@ -136,6 +136,10 @@ body {
   border-radius: 4px;
 }
 
+#hold-section.locked canvas {
+  opacity: 0.35;
+}
+
 /* ---- Energía y habilidades ---- */
 .energy-bar {
   height: 12px;
