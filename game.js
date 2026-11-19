@@ -14,6 +14,7 @@ const PALETTES = {
     '#e57373', // Z - red
     '#90caf9', // J - pale blue
     '#ffb74d', // L - orange
+    '#ffffff', // power-up
   ],
   light: [
     null,
@@ -24,6 +25,7 @@ const PALETTES = {
     '#e53935', // Z - red
     '#1e88e5', // J - blue
     '#fb8c00', // L - orange
+    '#424242', // power-up
   ],
 };
 let COLORS = PALETTES.dark;
@@ -40,6 +42,10 @@ const PIECES = [
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+
+const POWERUP_EVERY = 5;
+const FREEZE_MS = 5000;
+const POWER_ICONS = { bomb: '💣', ray: '⚡', tint: '🎨', gravity: '⬇', freeze: '❄' };
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -59,7 +65,7 @@ const themeText = document.getElementById('theme-text');
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -69,6 +75,39 @@ function randomPiece() {
   const type = Math.floor(Math.random() * 7) + 1;
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+function powerPiece() {
+  const kinds = Object.keys(POWER_ICONS);
+  return { type: 8, shape: [[8]], power: kinds[Math.floor(Math.random() * kinds.length)], x: Math.floor(COLS / 2), y: 0 };
+}
+
+// Cada columna cae: los bloques se apilan abajo sin huecos
+function compact() {
+  for (let c = 0; c < COLS; c++) {
+    const col = [];
+    for (let r = ROWS - 1; r >= 0; r--) if (board[r][c]) col.push(board[r][c]);
+    for (let r = ROWS - 1, i = 0; r >= 0; r--, i++) board[r][c] = col[i] || 0;
+  }
+}
+
+function applyPower({ power, x, y }) {
+  if (power === 'bomb') {
+    for (let r = y - 1; r <= y + 1; r++)
+      for (let c = x - 1; c <= x + 1; c++)
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) board[r][c] = 0;
+  } else if (power === 'ray') {
+    board[y].fill(0);
+    for (let r = 0; r < ROWS; r++) board[r][x] = 0;
+  } else if (power === 'tint') {
+    const target = board[y + 1]?.[x] || Math.floor(Math.random() * 7) + 1;
+    for (const row of board) for (let c = 0; c < COLS; c++) if (row[c] === target) row[c] = 0;
+    compact();
+  } else if (power === 'gravity') {
+    compact();
+  } else if (power === 'freeze') {
+    freezeLeft = FREEZE_MS;
+  }
 }
 
 function collide(shape, ox, oy) {
@@ -123,6 +162,7 @@ function clearLines() {
     }
   }
   if (cleared) {
+    if (Math.floor((lines + cleared) / POWERUP_EVERY) > Math.floor(lines / POWERUP_EVERY)) powerPending = true;
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
@@ -155,14 +195,15 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
+  if (current.power) applyPower(current); else merge();
   clearLines();
   spawn();
 }
 
 function spawn() {
   current = next;
-  next = randomPiece();
+  next = powerPending ? powerPiece() : randomPiece();
+  powerPending = false;
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -247,6 +288,19 @@ function draw() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+  if (current.power) drawIcon(ctx, current.x, current.y, BLOCK, current.power);
+
+  if (freezeLeft > 0) {
+    ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+function drawIcon(context, x, y, size, power) {
+  context.font = `${size - 8}px serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(POWER_ICONS[power], x * size + size / 2, y * size + size / 2 + 1);
 }
 
 function drawNext() {
@@ -258,6 +312,7 @@ function drawNext() {
   for (let r = 0; r < shape.length; r++)
     for (let c = 0; c < shape[r].length; c++)
       drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
+  if (next.power) drawIcon(nextCtx, offX, offY, NB, next.power);
 }
 
 function endGame() {
@@ -285,7 +340,7 @@ function togglePause() {
 function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
-  dropAccum += dt;
+  if (freezeLeft > 0) freezeLeft -= dt; else dropAccum += dt;
   if (dropAccum >= dropInterval) {
     dropAccum = 0;
     if (!collide(current.shape, current.x, current.y + 1)) {
@@ -307,6 +362,8 @@ function init() {
   gameOver = false;
   dropInterval = 1000;
   dropAccum = 0;
+  powerPending = false;
+  freezeLeft = 0;
   lastTime = performance.now();
   next = randomPiece();
   spawn();
