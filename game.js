@@ -104,6 +104,10 @@ const queueCanvas = document.getElementById('queue-canvas');
 const queueCtx = queueCanvas.getContext('2d');
 const holdSection = document.getElementById('hold-section');
 const queueSection = document.getElementById('queue-section');
+const pauseMenu = document.getElementById('pause-menu');
+const startLevelSelect = document.getElementById('start-level');
+const controlsBtn = document.getElementById('controls-btn');
+const pauseControls = document.getElementById('pause-controls');
 
 const CHALLENGE_MS = 120000;
 const CHALLENGES = {
@@ -117,6 +121,7 @@ const CHALLENGES = {
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
 
+let startLevel, resumeGuard;
 let queue, energy, choosing, previewLeft, slowLeft, held, holdUsed, spawned, undoSnap;
 let board, current, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending, combo, lastRotate, b2b, popups, challenge, elapsed, garbageAccum;
 
@@ -304,9 +309,13 @@ function clearLines(tspin) {
   const wasFull = energy >= ENERGY_MAX;
   energy = Math.min(ENERGY_MAX, energy + cleared * ENERGY_PER_LINE);
   if (!wasFull && energy >= ENERGY_MAX) { popup('ENERGÍA LLENA'); beep(988, 150, 150); }
-  level = Math.floor(lines / 10) + 1;
-  dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+  level = startLevel + Math.floor(lines / 10);
+  dropInterval = intervalFor(level);
   updateHUD();
+}
+
+function intervalFor(lv) {
+  return Math.max(100, 1000 - (lv - 1) * 90);
 }
 
 function ghostY() {
@@ -566,14 +575,16 @@ function updateGoal() {
 function togglePause() {
   if (gameOver || choosing) return;
   paused = !paused;
+  pauseMenu.classList.toggle('hidden', !paused);
   if (!paused) {
+    document.activeElement?.blur?.();
+    resumeGuard = true; // ignora teclas mantenidas hasta una pulsación nueva
+    dropAccum = 0;
     lastTime = performance.now();
     loop(lastTime);
   } else {
     cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
+    document.getElementById('resume-btn').focus();
   }
 }
 
@@ -619,10 +630,13 @@ function init() {
   if (challenge) { challenge.setup?.(); updateGoal(); }
   score = 0;
   lines = 0;
-  level = 1;
+  startLevel = challenge ? 1 : (+startLevelSelect.value || 1); // los desafíos dependen del nivel
+  level = startLevel;
   paused = false;
+  resumeGuard = false;
+  pauseMenu.classList.add('hidden');
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = intervalFor(level);
   dropAccum = 0;
   powerPending = false;
   rewardPending = false;
@@ -651,14 +665,16 @@ function init() {
 document.addEventListener('keydown', e => {
   if (e.target === themeBtn && e.code === 'Space') { e.preventDefault(); return; }
   if (e.target === modeSelect) return;
+  if (pauseMenu.contains(e.target) && e.code !== 'KeyP' && e.code !== 'Escape') return;
   if (e.code === 'KeyT') { toggleTheme(); return; }
   if (choosing) {
     if (e.code === 'Escape') closeAbilities();
     else if (/^Digit[1-5]$/.test(e.code)) useAbility(+e.code[5] - 1);
     return;
   }
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { if (!e.repeat) togglePause(); return; }
   if (paused || gameOver) return;
+  if (resumeGuard) { if (e.repeat) return; resumeGuard = false; }
   switch (e.code) {
     case 'KeyE':
       if (energy >= ENERGY_MAX) openAbilities();
@@ -690,6 +706,14 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+document.getElementById('resume-btn').addEventListener('click', e => { togglePause(); e.target.blur(); });
+document.getElementById('pause-restart-btn').addEventListener('click', e => { init(); e.target.blur(); });
+controlsBtn.addEventListener('click', () => {
+  pauseControls.hidden = !pauseControls.hidden;
+  controlsBtn.setAttribute('aria-expanded', String(!pauseControls.hidden));
+  controlsBtn.blur();
+});
+startLevelSelect.addEventListener('change', () => startLevelSelect.blur());
 abilityMenu.addEventListener('click', e => {
   const i = e.target.dataset.i;
   if (i !== undefined) useAbility(+i);
