@@ -133,6 +133,7 @@ const SKINS = {
     },
   },
   neon: {
+    palette: () => PALETTES.dark, // fondo siempre negro: colores brillantes en ambos temas
     block(c, px, py, s, color) {
       c.shadowColor = color;
       c.shadowBlur = s / 3;
@@ -147,6 +148,7 @@ const SKINS = {
     palette: t => PASTEL[t],
     block(c, px, py, s, color) {
       c.fillStyle = color;
+      if (!c.roundRect) { c.fillRect(px + 2, py + 2, s - 4, s - 4); return; }
       c.beginPath();
       c.roundRect(px + 2, py + 2, s - 4, s - 4, s / 4);
       c.fill();
@@ -579,6 +581,8 @@ function drawIcon(context, x, y, size, power) {
   context.font = `${size - 8}px serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
+  // el skin deja fillStyle arbitrario; el bloque power-up es claro (oscuro) u oscuro (claro, salvo neon)
+  context.fillStyle = theme === 'light' && skin !== 'neon' ? '#fff' : '#111';
   context.fillText(POWER_ICONS[power], x * size + size / 2, y * size + size / 2 + 1);
 }
 
