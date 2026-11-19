@@ -42,6 +42,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
 - **Pausa** y **Game Over** con opción de reinicio.
+- **Modo desafío** (selector `MODO`): 40 líneas en 2 min, sobrevivir 2 min con basura subiendo cada 10 s, limpiar bloques fijos pre-colocados, piezas invisibles tras fijarse (20 líneas) y rotación inversa desde el nivel 3 (llegar al nivel 5).
 
 ---
 

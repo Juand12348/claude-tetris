@@ -20,6 +20,7 @@ const PALETTES = {
     '#d4e157', // Y lime
     '#ffca28', // single gold
     '#90a4ae', // hollow slate
+    '#6b6b7b', // fixed / garbage
   ],
   light: [
     null,
@@ -36,8 +37,10 @@ const PALETTES = {
     '#9e9d24', // Y lime
     '#ff8f00', // single gold
     '#546e7a', // hollow slate
+    '#8a8a99', // fixed / garbage
   ],
 };
+const FIXED = 14;
 let COLORS = PALETTES.dark;
 
 const PIECES = [
@@ -85,11 +88,22 @@ const themeBtn = document.getElementById('theme-toggle');
 const themeIcon = document.getElementById('theme-icon');
 const themeText = document.getElementById('theme-text');
 const comboEl = document.getElementById('combo');
+const modeSelect = document.getElementById('mode-select');
+const goalEl = document.getElementById('goal');
+
+const CHALLENGE_MS = 120000;
+const CHALLENGES = {
+  sprint:    { goal: '40 líneas', limit: CHALLENGE_MS, won: () => lines >= 40 },
+  garbage:   { goal: 'Sobrevive', garbageEvery: 10000, won: () => elapsed >= CHALLENGE_MS, countdown: CHALLENGE_MS },
+  fixed:     { goal: 'Limpia los grises', setup: placeFixed, won: () => !board.some(r => r.includes(FIXED)) },
+  invisible: { goal: '20 líneas', invisible: true, won: () => lines >= 20 },
+  reverse:   { goal: 'Nivel 5', reverseFrom: 3, won: () => level >= 5 },
+};
 
 const THEME_KEY = 'tetris-theme';
 let theme = 'dark';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending, combo, lastRotate, b2b, popups;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, powerPending, freezeLeft, rewardPending, combo, lastRotate, b2b, popups, challenge, elapsed, garbageAccum;
 
 let audioCtx;
 function beep(freq, ms = 120, delay = 0) {
@@ -114,6 +128,23 @@ function popup(text) {
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+}
+
+// 6 filas inferiores con bloques fijos y un hueco por fila (ninguna empieza completa)
+function placeFixed() {
+  for (let r = ROWS - 6; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) board[r][c] = Math.random() < 0.5 ? FIXED : 0;
+    board[r][Math.floor(Math.random() * COLS)] = 0;
+  }
+}
+
+function addGarbage() {
+  if (board[0].some(v => v)) { endGame(); return; }
+  board.shift();
+  const row = new Array(COLS).fill(FIXED);
+  row[Math.floor(Math.random() * COLS)] = 0;
+  board.push(row);
+  if (collide(current.shape, current.x, current.y)) current.y--;
 }
 
 function randomPiece(forced) {
@@ -182,7 +213,8 @@ function rotateCW(shape) {
 }
 
 function tryRotate() {
-  const rotated = rotateCW(current.shape);
+  let rotated = rotateCW(current.shape);
+  if (challenge?.reverseFrom && level >= challenge.reverseFrom) rotated = rotateCW(rotateCW(rotated));
   const kicks = [0, -1, 1, -2, 2];
   for (const kick of kicks) {
     if (!collide(rotated, current.x + kick, current.y)) {
@@ -366,9 +398,10 @@ function draw() {
   drawGrid();
 
   // board
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
-      drawBlock(ctx, c, r, board[r][c], BLOCK);
+  if (!(challenge?.invisible && !gameOver))
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        drawBlock(ctx, c, r, board[r][c], BLOCK);
 
   // ghost
   const gy = ghostY();
@@ -419,12 +452,21 @@ function drawNext() {
   if (next.power) drawIcon(nextCtx, offX, offY, NB, next.power);
 }
 
-function endGame() {
+function endGame(title = 'GAME OVER') {
+  if (gameOver) return;
   gameOver = true;
   cancelAnimationFrame(animId);
-  overlayTitle.textContent = 'GAME OVER';
+  draw(); // revela el tablero en el desafío invisible
+  overlayTitle.textContent = title;
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   overlay.classList.remove('hidden');
+}
+
+function updateGoal() {
+  const left = Math.max(0, (challenge.limit || challenge.countdown || 0) - elapsed);
+  const t = Math.ceil(left / 1000);
+  goalEl.textContent = `${challenge.goal} · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  if (!challenge.limit && !challenge.countdown) goalEl.textContent = challenge.goal;
 }
 
 function togglePause() {
@@ -447,6 +489,17 @@ function loop(ts) {
   if (freezeLeft > 0) freezeLeft -= dt; else dropAccum += dt;
   popups.forEach(p => { p.t -= dt; });
   popups = popups.filter(p => p.t > 0);
+  if (challenge) {
+    elapsed += dt;
+    if (challenge.garbageEvery && (garbageAccum += dt) >= challenge.garbageEvery) {
+      garbageAccum = 0;
+      addGarbage();
+    }
+    updateGoal();
+    if (!gameOver && challenge.won()) endGame('¡DESAFÍO COMPLETADO!');
+    else if (!gameOver && challenge.limit && elapsed >= challenge.limit) endGame('TIEMPO AGOTADO');
+    if (gameOver) return;
+  }
   if (dropAccum >= dropInterval) {
     dropAccum = 0;
     if (!collide(current.shape, current.x, current.y + 1)) {
@@ -462,6 +515,11 @@ function loop(ts) {
 
 function init() {
   board = createBoard();
+  challenge = CHALLENGES[modeSelect.value] || null;
+  elapsed = 0;
+  garbageAccum = 0;
+  goalEl.hidden = !challenge;
+  if (challenge) { challenge.setup?.(); updateGoal(); }
   score = 0;
   lines = 0;
   level = 1;
@@ -487,6 +545,7 @@ function init() {
 
 document.addEventListener('keydown', e => {
   if (e.target === themeBtn && e.code === 'Space') { e.preventDefault(); return; }
+  if (e.target === modeSelect) return;
   if (e.code === 'KeyT') { toggleTheme(); return; }
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
@@ -513,6 +572,7 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+modeSelect.addEventListener('change', () => { init(); modeSelect.blur(); });
 themeBtn.addEventListener('click', () => { toggleTheme(); themeBtn.blur(); });
 
 // El tema se carga una sola vez (no en init) para que reiniciar no lo resetee

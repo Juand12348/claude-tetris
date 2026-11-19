@@ -32,6 +32,19 @@
         </div>
 
         <div class="panel-section">
+          <span class="label">MODO</span>
+          <select id="mode-select" aria-label="Modo de juego">
+            <option value="normal">Normal</option>
+            <option value="sprint">40 líneas en 2 min</option>
+            <option value="garbage">Basura cada 10s (2 min)</option>
+            <option value="fixed">Bloques fijos</option>
+            <option value="invisible">Piezas invisibles</option>
+            <option value="reverse">Rotación inversa</option>
+          </select>
+          <span class="value goal" id="goal" hidden></span>
+        </div>
+
+        <div class="panel-section">
           <span class="label">NEXT</span>
           <canvas id="next-canvas" width="120" height="120"></canvas>
         </div>
